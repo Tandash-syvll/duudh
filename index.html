@@ -1,0 +1,2521 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Duudh - 3D Cozy Cow Farm</title>
+    <meta name="description" content="A cozy, cute 3D farm management game focused on raising, caring for, and trading adorable cows." />
+    <meta property="og:title" content="Duudh - 3D Cozy Cow Farm" />
+    <meta property="og:description" content="A cozy, cute 3D farm management game focused on raising, caring for, and trading adorable cows." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Three.js & OrbitControls via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/index.css">
+  </head>
+  <body>
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Hover 3D Cow Tooltip -->
+    <div id="cow-hover-card"></div>
+
+    <!-- Floating Feedback FX Layer -->
+    <div id="fx-container" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:150;"></div>
+
+    <!-- UI Overlay Layer -->
+    <div id="ui-root">
+      <!-- Top HUD Header -->
+      <div class="top-hud pointer-auto">
+        <div class="brand-badge">
+          <h1>🐮 Duudh</h1>
+          <span class="sub">Cozy 3D Farm</span>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-pill synn-pill" title="In-Game Currency">
+            <span>✦</span>
+            <span id="synn-display">250</span> Synn
+          </div>
+          <div class="stat-pill timer-pill" title="1 In-Game Day = 5 Real-Time Minutes">
+            <span>⏱️</span>
+            <span id="day-num-display">Day 1</span>&nbsp;•&nbsp;
+            <span id="countdown-display">05:00</span>
+          </div>
+          <div class="stat-pill supply-pill" title="Grass Bundles">
+            <span>🌿</span>
+            <span id="grass-display">15</span>
+          </div>
+          <div class="stat-pill supply-pill" title="Cleaning Kits">
+            <span>🧼</span>
+            <span id="cleaning-display">10</span>
+          </div>
+        </div>
+
+        <div class="action-dock-top">
+          <button class="nav-btn primary" id="btn-open-harvest" title="Harvest and sell milk">
+            🥛 Dairy Harvest <span id="milk-ready-badge" class="badge-dot" style="display:none;">1</span>
+          </button>
+          <button class="nav-btn gold" id="btn-open-shop" title="Adopt new calves & buy farm supplies">
+            🌾 Farm Shop
+          </button>
+          <button class="nav-btn" id="btn-open-market" title="Local Player & NPC Trading Market">
+            🏪 Market
+          </button>
+          <button class="nav-btn" id="btn-open-minigame" title="Play minigames (Time is frozen!)">
+            🎮 Minigames
+          </button>
+          <button class="nav-btn" id="btn-sound-toggle" title="Toggle audio effects">
+            🔊 Sound
+          </button>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <div id="game-toast">✨ Notification</div>
+
+      <!-- Day Rollover Banner -->
+      <div id="day-rollover-banner">
+        <h2 id="rollover-title">☀️ Day Complete!</h2>
+        <p id="rollover-desc">A new morning dawns on Duudh Farm! Cows produced fresh milk.</p>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- SLIDE-UP COW ACTION BAR / TOOLBAR (On 3D Raycast Click)  -->
+      <!-- ======================================================== -->
+      <div id="cow-action-toolbar" class="pointer-auto">
+        <!-- Top Cow Summary Strip -->
+        <div class="toolbar-top-row">
+          <div class="toolbar-cow-info">
+            <div class="toolbar-avatar" id="tb-avatar">🐮</div>
+            <div class="toolbar-title-group">
+              <div class="toolbar-title-row">
+                <span class="toolbar-name" id="tb-name">Gauri</span>
+                <input type="text" id="tb-name-input" class="cow-name-input" style="display:none; max-width:130px; padding:2px 6px; font-size:13px;" maxlength="18" placeholder="Rename..." />
+                <button class="rename-btn" id="tb-rename-btn" onclick="toggleRenameToolbarCow()" title="Rename this cow">✏️ Rename</button>
+                <span class="toolbar-breed" id="tb-breed">Gir</span>
+                <span class="grade-pill grade-A" id="tb-grade">Grade A</span>
+              </div>
+              <div class="toolbar-stats-chips">
+                <span id="tb-level">Level 1 (Calf)</span>
+                <span>•</span>
+                <span id="tb-xp">0 / 100 XP</span>
+                <span>•</span>
+                <span id="tb-care-score">Score: 85/100</span>
+                <span>•</span>
+                <span id="tb-pen">Pen 1</span>
+              </div>
+            </div>
+          </div>
+          <button class="toolbar-close-btn" onclick="closeCowToolbar()" title="Close Toolbar">&times;</button>
+        </div>
+
+        <!-- 5 Action Buttons Grid -->
+        <div class="toolbar-actions-grid">
+          <!-- 1. Feed -->
+          <button class="action-bar-btn" id="tb-btn-feed" onclick="handleToolbarFeed()">
+            <span class="btn-icon">🌿</span>
+            <span class="btn-label">Feed</span>
+            <span class="btn-sub" id="tb-feed-sub">1 Grass</span>
+          </button>
+
+          <!-- 2. Bathe / Wash -->
+          <button class="action-bar-btn" id="tb-btn-wash" onclick="handleToolbarWash()">
+            <span class="btn-icon">🧼</span>
+            <span class="btn-label">Bathe / Wash</span>
+            <span class="btn-sub" id="tb-wash-sub">1 Cleaning Kit</span>
+          </button>
+
+          <!-- 3. Pet / Take Care -->
+          <button class="action-bar-btn" id="tb-btn-pet" onclick="handleToolbarPet()">
+            <span class="btn-icon">❤️</span>
+            <span class="btn-label">Pet / Care</span>
+            <span class="btn-sub" id="tb-pet-sub">Affection (Free)</span>
+          </button>
+
+          <!-- 4. Collect Milk -->
+          <button class="action-bar-btn" id="tb-btn-milk" onclick="handleToolbarCollectMilk()">
+            <span class="btn-icon">🥛</span>
+            <span class="btn-label">Collect Milk</span>
+            <span class="btn-sub" id="tb-milk-sub">1L Ready</span>
+          </button>
+
+          <!-- 5. Sell / Trade -->
+          <button class="action-bar-btn sell-trade" id="tb-btn-sell" onclick="handleToolbarSellTrade()">
+            <span class="btn-icon">💰</span>
+            <span class="btn-label">Sell / Trade</span>
+            <span class="btn-sub" id="tb-sell-sub">50% or Market</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Pen Selector (Collapsible Dock) -->
+      <div class="bottom-dock-wrapper pointer-auto" id="bottom-dock">
+        <button class="dock-toggle-btn" id="btn-toggle-dock" title="Toggle Dock">
+          ▾ Hide Dock
+        </button>
+        <div class="pen-dock" id="pen-dock-container">
+          <!-- Populated by JS for Pens 1 through 10 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Farm Shop Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-shop">
+      <div class="modal-box" style="max-width: 780px;">
+        <div class="modal-header">
+          <h2>🌾 Duudh Farm Shop</h2>
+          <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-tabs">
+            <button class="tab-btn active" id="tab-btn-calves" onclick="switchShopTab('calves')">Adopt Calves (15 Breeds)</button>
+            <button class="tab-btn" id="tab-btn-supplies" onclick="switchShopTab('supplies')">Farm Supplies (Grass & Soap)</button>
+          </div>
+
+          <!-- Calves Tab -->
+          <div id="shop-tab-calves" class="shop-grid">
+            <!-- Dynamically populated 15 breeds with custom naming inputs -->
+          </div>
+
+          <!-- Supplies Tab -->
+          <div id="shop-tab-supplies" style="display:none; flex-direction:column; gap:10px;">
+            <div class="supply-buy-card">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:32px;">🌿</span>
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:17px; color:#3e2723;">Fresh Pasture Grass (1 Bundle)</h4>
+                  <p style="font-size:12px; color:#6d4c41;">Nutritious meadow sweetgrass for feeding your cows.</p>
+                </div>
+              </div>
+              <button class="buy-btn" onclick="buySupply('grass', 1, 5)">Buy 1 (5 ✦)</button>
+            </div>
+
+            <div class="supply-buy-card">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:32px;">🌾</span>
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:17px; color:#3e2723;">Grass Bale Bulk Pack (10 Bundles)</h4>
+                  <p style="font-size:12px; color:#6d4c41;">Great value farm pack with a 10% discount!</p>
+                </div>
+              </div>
+              <button class="buy-btn" onclick="buySupply('grass', 10, 45)">Buy 10 (45 ✦)</button>
+            </div>
+
+            <div class="supply-buy-card">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:32px;">🧼</span>
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:17px; color:#3e2723;">Gentle Cow Soap & Brush (1 Kit)</h4>
+                  <p style="font-size:12px; color:#6d4c41;">Soothing herbal grooming wash to keep coats sparkling clean.</p>
+                </div>
+              </div>
+              <button class="buy-btn" onclick="buySupply('cleaning', 1, 10)">Buy 1 (10 ✦)</button>
+            </div>
+
+            <div class="supply-buy-card">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:32px;">✨</span>
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:17px; color:#3e2723;">Deluxe Grooming Crate (10 Kits)</h4>
+                  <p style="font-size:12px; color:#6d4c41;">Stock up cleaning kits with a discount for growing herds!</p>
+                </div>
+              </div>
+              <button class="buy-btn" onclick="buySupply('cleaning', 10, 90)">Buy 10 (90 ✦)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dairy Harvest & Milk Sales Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-harvest">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>🥛 Dairy Harvest & Milk Sales</h2>
+          <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); border-radius:18px; padding:16px; border:2px solid #90caf9;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="font-family:'Fredoka'; font-size:19px; color:#0d47a1;">Daily Milk Pail</h3>
+                <p style="font-size:12px; font-weight:700; color:#1976d2;">Milk pricing scales from Grade F (10 ✦/L) to Grade S (150 ✦/L)</p>
+              </div>
+              <span style="font-size:38px;">🥛</span>
+            </div>
+            <div style="margin-top:12px; display:flex; gap:10px;">
+              <div style="background:white; border-radius:12px; padding:8px 12px; flex:1; text-align:center;">
+                <div style="font-size:11px; font-weight:800; color:#546e7a;">READY TO HARVEST</div>
+                <div style="font-size:19px; font-weight:900; color:#0d47a1;" id="harvest-liters-count">0 Liters</div>
+              </div>
+              <div style="background:white; border-radius:12px; padding:8px 12px; flex:1; text-align:center;">
+                <div style="font-size:11px; font-weight:800; color:#546e7a;">TOTAL ESTIMATED VALUE</div>
+                <div style="font-size:19px; font-weight:900; color:#2e7d32;" id="harvest-value-count">0 Synn</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="harvest-cows-list" style="display:flex; flex-direction:column; gap:8px; max-height:240px; overflow-y:auto;">
+            <!-- Populated with cows and ready milk -->
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button class="nav-btn primary" style="flex:1; justify-content:center; padding:12px;" id="btn-collect-all-milk" onclick="collectAndSellAllMilk()">
+              🥛 Collect & Sell to Dairy Guild
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Local Player Trading Market Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-market">
+      <div class="modal-box" style="max-width: 680px;">
+        <div class="modal-header">
+          <h2>🏪 Local Trading Market</h2>
+          <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13px; color:#5d4037; font-weight:700;">
+            Local NPC buyers and traveling connoisseurs are looking to buy healthy cows! Higher Level and Grade cows fetch huge premium offers (up to 250% base value!).
+          </p>
+
+          <div id="market-offers-list" style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Offers populated by JS -->
+          </div>
+
+          <button class="nav-btn" style="align-self:center; margin-top:8px;" onclick="generateMarketOffers(true)">
+            🔄 Seek New Buyers
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sell / Trade Confirmation Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-sell-options">
+      <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+          <h2 id="sell-modal-title">💰 Sell or Trade Cow</h2>
+          <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="text-align:center; padding:10px 0;">
+            <div style="font-size:48px;" id="sell-modal-avatar">🐮</div>
+            <h3 style="font-family:'Fredoka'; font-size:22px; color:#3e2723; margin-top:4px;" id="sell-modal-cow-name">Gauri</h3>
+            <p style="font-size:12px; font-weight:800; color:#795548;" id="sell-modal-cow-info">Gir • Level 1 • Grade A</p>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Option 1: Direct Sell -->
+            <div class="shop-card" style="cursor:pointer;" onclick="confirmDirectSell()">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:16px; color:#c62828;">Direct Ranch Buyback (50%)</h4>
+                  <p style="font-size:11px; color:#795548;">Instant sale payout (50% base price + level bonus).</p>
+                </div>
+                <div style="font-size:18px; font-weight:900; color:#c62828;" id="sell-direct-amount">5 ✦</div>
+              </div>
+            </div>
+
+            <!-- Option 2: Market Listing -->
+            <div class="shop-card" style="cursor:pointer; background:#fff8e1; border-color:#ffd54f;" onclick="openMarketForCow()">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h4 style="font-family:'Fredoka'; font-size:16px; color:#e65100;">Local Trading Market</h4>
+                  <p style="font-size:11px; color:#795548;">Check custom offers from VIP buyers (up to 250% value!).</p>
+                </div>
+                <span style="font-size:24px;">🏪</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minigames Launcher & Play Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-minigame">
+      <div class="modal-box" style="max-width: 620px;">
+        <div class="modal-header">
+          <h2 id="minigame-title">🎮 Farm Minigames</h2>
+          <button class="close-btn" onclick="exitMinigame()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Selection view -->
+          <div id="minigame-select-view" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="freeze-banner">
+              <span>⏱️</span>
+              <span>TIME FREEZE ACTIVE: Farm Day Clock pauses automatically during all minigames!</span>
+            </div>
+
+            <div class="shop-card" style="cursor:pointer;" onclick="startMinigame('catch')">
+              <div class="shop-card-head">
+                <div class="shop-avatar" style="background:#e0f7fa;">🥛</div>
+                <div>
+                  <h3 class="shop-card-title">Milk Catch Drop</h3>
+                  <div style="font-size:12px; font-weight:800; color:#00838f;">Cozy Arcade Catching</div>
+                </div>
+              </div>
+              <p class="shop-card-desc">Move your milk pail to catch falling fresh milk drops and strawberries! Avoid pesky thistles.</p>
+              <button class="buy-btn" style="align-self:flex-start; margin-top:6px;">Play Now (Earn Synn & Supplies)</button>
+            </div>
+
+            <div class="shop-card" style="cursor:pointer;" onclick="startMinigame('runner')">
+              <div class="shop-card-head">
+                <div class="shop-avatar" style="background:#e8f5e9;">🍀</div>
+                <div>
+                  <h3 class="shop-card-title">Pasture Clover Hop</h3>
+                  <div style="font-size:12px; font-weight:800; color:#2e7d32;">Pasture Jump Runner</div>
+                </div>
+              </div>
+              <p class="shop-card-desc">Help your cute calf leap over hay bales and fences while collecting lucky four-leaf clovers and golden bells!</p>
+              <button class="buy-btn" style="align-self:flex-start; margin-top:6px;">Play Now (Earn Synn & Supplies)</button>
+            </div>
+          </div>
+
+          <!-- Active Minigame View -->
+          <div id="minigame-active-view" style="display:none; flex-direction:column; align-items:center; gap:10px;">
+            <div class="freeze-banner">
+              <span>⏸️</span>
+              <span id="minigame-freeze-status">Day Clock Paused at 05:00</span>
+            </div>
+
+            <div class="minigame-scorebar">
+              <div>Score: <span id="mg-score" style="color:#00838f; font-size:18px;">0</span></div>
+              <div>Time: <span id="mg-timer" style="color:#e65100; font-size:18px;">30s</span></div>
+              <button class="nav-btn" style="padding:4px 10px; font-size:11px;" onclick="exitMinigame()">Quit Game</button>
+            </div>
+
+            <canvas id="minigame-canvas" width="560" height="330"></canvas>
+
+            <div id="mg-gameover-panel" style="display:none; text-align:center; background:#fff; border:2px solid #b2dfdb; border-radius:16px; padding:12px; width:100%;">
+              <h3 style="font-family:'Fredoka'; font-size:20px; color:#00695c;" id="mg-finish-title">🎉 Great Job!</h3>
+              <p style="font-size:14px; font-weight:800; color:#37474f; margin:4px 0;" id="mg-finish-rewards">Earned +45 Synn & 2 Grass!</p>
+              <button class="buy-btn" style="margin-top:6px;" onclick="claimMinigameRewards()">Claim Rewards & Return to Farm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pen Purchase Confirmation Modal -->
+    <div class="modal-backdrop pointer-auto" id="modal-buy-pen">
+      <div class="modal-box" style="max-width: 440px;">
+        <div class="modal-header">
+          <h2 id="buy-pen-title">Expand Farm: Pen 2</h2>
+          <button class="close-btn" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="modal-body" style="text-align:center;">
+          <span style="font-size:46px;">🏡</span>
+          <p style="font-size:14px; font-weight:700; color:#5d4037; margin-top:6px;">
+            Unlock this pen to expand your pasture! Each pen holds up to <strong style="color:#2e7d32;">5 cows</strong>.
+          </p>
+          <div style="background:#fff8e1; border:2px solid #ffe082; border-radius:14px; padding:10px; margin:10px 0;">
+            <div style="font-size:11px; font-weight:800; color:#8d6e63;">UNLOCK COST</div>
+            <div style="font-size:22px; font-weight:900; color:#e65100;" id="buy-pen-cost">100 Synn</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="nav-btn" style="flex:1; justify-content:center;" onclick="closeAllModals()">Cancel</button>
+            <button class="buy-btn" style="flex:1; padding:10px; font-size:13px;" id="btn-confirm-buy-pen" onclick="confirmPurchasePen()">
+              Unlock Pen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT GAME LOGIC ================= -->
+    <script>
+      /* --- Audio Synthesis (100% Procedural Web Audio API) --- */
+      let audioCtx = null;
+      let soundEnabled = true;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) audioCtx = new AudioContext();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      function playSound(type) {
+        if (!soundEnabled) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        if (type === 'moo') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.4);
+          osc.frequency.exponentialRampToValueAtTime(85, now + 0.9);
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(450, now);
+          filter.frequency.exponentialRampToValueAtTime(320, now + 0.9);
+
+          gain.gain.setValueAtTime(0.01, now);
+          gain.gain.linearRampToValueAtTime(0.18, now + 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.95);
+        } else if (type === 'coin') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(987.77, now);
+          osc.frequency.setValueAtTime(1318.51, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'wash') {
+          for (let i = 0; i < 3; i++) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const startT = now + i * 0.07;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(350 + i * 120, startT);
+            osc.frequency.exponentialRampToValueAtTime(650 + i * 150, startT + 0.08);
+            gain.gain.setValueAtTime(0.12, startT);
+            gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(startT);
+            osc.stop(startT + 0.09);
+          }
+        } else if (type === 'feed') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.linearRampToValueAtTime(120, now + 0.12);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'pet') {
+          const notes = [440, 554.37, 659.25];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const t = now + idx * 0.06;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.26);
+          });
+        } else if (type === 'milk') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.14);
+        }
+      }
+
+      /* --- Name Suggestions --- */
+      const CUTE_NAMES = [
+        'Nandini', 'Gauri', 'Cutey', 'Sundari', 'Kamadhenu', 'Bella', 'Buttercup',
+        'Daisy', 'Clover', 'Rosie', 'Molly', 'Pippin', 'Brownie', 'Penny',
+        'Strawberry', 'Toffee', 'Honey', 'Cookie', 'Mallow', 'MooMoo', 'Blossom'
+      ];
+
+      function getRandomCuteName() {
+        return CUTE_NAMES[Math.floor(Math.random() * CUTE_NAMES.length)];
+      }
+
+      /* --- Pen Data (10 Pens) --- */
+      const PEN_DATA = [
+        { id: 0, name: 'Pen 1', cost: 0, unlocked: true },
+        { id: 1, name: 'Pen 2', cost: 100, unlocked: false },
+        { id: 2, name: 'Pen 3', cost: 1000, unlocked: false },
+        { id: 3, name: 'Pen 4', cost: 1500, unlocked: false },
+        { id: 4, name: 'Pen 5', cost: 2500, unlocked: false },
+        { id: 5, name: 'Pen 6', cost: 5000, unlocked: false },
+        { id: 6, name: 'Pen 7', cost: 7500, unlocked: false },
+        { id: 7, name: 'Pen 8', cost: 8000, unlocked: false },
+        { id: 8, name: 'Pen 9', cost: 9000, unlocked: false },
+        { id: 9, name: 'Pen 10', cost: 10000, unlocked: false }
+      ];
+
+      /* --- 15 Cow Breeds Roster --- */
+      const COW_BREEDS = [
+        { id: 1, name: 'Gir', cost: 10, yield: 1, maxGrade: 'A', minGrade: 'F', coat: '#c27953', spots: '#934d28', horns: 'lyre', hump: true, desc: 'Cheapest breed. Known for distinct dorsal hump and curved lyre horns.' },
+        { id: 2, name: 'Holstein', cost: 25, yield: 2, maxGrade: 'A', minGrade: 'F', coat: '#fcfcfc', spots: '#262626', horns: 'small', hump: false, desc: 'Classic black and white dairy icon with dependable milk yield.' },
+        { id: 3, name: 'Jersey', cost: 50, yield: 3, maxGrade: 'A', minGrade: 'F', coat: '#b88151', spots: '#7a4e28', horns: 'small', hump: false, desc: 'Rich fawn coat with dark muzzle and lovely big dark eyes.' },
+        { id: 4, name: 'Guernsey', cost: 100, yield: 4, maxGrade: 'A', minGrade: 'F', coat: '#e0985c', spots: '#fff8f0', horns: 'curved', hump: false, desc: 'Golden-red and white markings, renowned for golden-tinged rich milk.' },
+        { id: 5, name: 'Ayrshire', cost: 250, yield: 5, maxGrade: 'A', minGrade: 'F', coat: '#ffffff', spots: '#873229', horns: 'upright', hump: false, desc: 'Mahogany-red and white bold markings with proud upright horns.' },
+        { id: 6, name: 'Brown Swiss', cost: 500, yield: 6, maxGrade: 'A', minGrade: 'F', coat: '#8c827a', spots: '#5e5650', horns: 'small', hump: false, desc: 'Silky mouse-gray coat with a gentle pale ring around its muzzle.' },
+        { id: 7, name: 'Dexter', cost: 800, yield: 7, maxGrade: 'A', minGrade: 'F', coat: '#1f1e24', spots: '#1f1e24', horns: 'small', hump: false, desc: 'Chubby, compact short-legged deep black breed with a friendly round face.' },
+        { id: 8, name: 'Highland', cost: 1200, yield: 8, maxGrade: 'S', minGrade: 'F', coat: '#cf712b', spots: '#a85012', horns: 'wide', hump: false, shaggy: true, desc: 'Fluffy shaggy ginger-orange fur, long wide majestic horns, and bangs!' },
+        { id: 9, name: 'Sahiwal', cost: 2000, yield: 9, maxGrade: 'S', minGrade: 'F', coat: '#a85f38', spots: '#783c1b', horns: 'short', hump: true, desc: 'Hardy reddish-brown zebu with loose throat dewlap and drooping ears.' },
+        { id: 10, name: 'Red Sindhi', cost: 3500, yield: 10, maxGrade: 'S', minGrade: 'F', coat: '#942b23', spots: '#611610', horns: 'medium', hump: true, desc: 'Deep crimson-chestnut coat with a dignified upright hump.' },
+        { id: 11, name: 'Belgian Blue', cost: 5000, yield: 11, maxGrade: 'S', minGrade: 'F', coat: '#cedce7', spots: '#455a64', horns: 'small', hump: false, muscular: true, desc: 'Extra-chunky muscular physique with slate-blue roan patches.' },
+        { id: 12, name: 'Ankole-Watusi', cost: 7000, yield: 12, maxGrade: 'S', minGrade: 'F', coat: '#7c3b24', spots: '#fdfbf7', horns: 'giant', hump: false, desc: 'Famous for giant magnificent crescent ivory horns and sleek body.' },
+        { id: 13, name: 'Strawberry Milk Cow', cost: 9000, yield: 13, maxGrade: 'S', minGrade: 'C', coat: '#f8bbd0', spots: '#ffffff', horns: 'berry', hump: false, fantasy: true, desc: 'Magical pastel strawberry-pink cow that produces delicious sweet strawberry milk!' },
+        { id: 14, name: 'Chocolate Milk Cow', cost: 12000, yield: 14, maxGrade: 'S', minGrade: 'C', coat: '#4e342e', spots: '#fff8e1', horns: 'fudge', hump: false, fantasy: true, desc: 'Rich cocoa chocolate cow with creamy milk drip patterns and caramel horns.' },
+        { id: 15, name: 'Golden Gir', cost: 15000, yield: 15, maxGrade: 'S', minGrade: 'C', coat: '#ffd54f', spots: '#fff9c4', horns: 'golden', hump: true, golden: true, desc: 'Most expensive & only golden cow! Shimmers with pure radiant gold.' }
+      ];
+
+      /* --- Grade & Pricing --- */
+      const GRADE_PRICES = {
+        'S': 150,
+        'A': 110,
+        'B': 80,
+        'C': 55,
+        'D': 35,
+        'E': 20,
+        'F': 10
+      };
+
+      function calculateGrade(score, breed) {
+        let g = 'F';
+        if (score >= 94) g = 'S';
+        else if (score >= 84) g = 'A';
+        else if (score >= 72) g = 'B';
+        else if (score >= 58) g = 'C';
+        else if (score >= 44) g = 'D';
+        else if (score >= 28) g = 'E';
+        else g = 'F';
+
+        if (breed.maxGrade === 'A' && g === 'S') g = 'A';
+        if (breed.minGrade === 'C' && ['D', 'E', 'F'].includes(g)) g = 'C';
+        return g;
+      }
+
+      /* --- Main Game State --- */
+      let gameState = {
+        synn: 250,
+        day: 1,
+        daySecondsLeft: 300,
+        supplies: {
+          grass: 15,
+          cleaning: 10
+        },
+        unlockedPens: [0],
+        selectedPenIndex: 0,
+        cows: [
+          {
+            id: 'cow-1',
+            name: 'Gauri',
+            breedId: 1,
+            penIndex: 0,
+            level: 1,
+            xp: 0,
+            careScore: 85,
+            lifetimeCareScore: 85,
+            careDone: { wash: false, feed: false, pet: false },
+            finalGrade: null,
+            milkReady: true,
+            ageDays: 1,
+            posX: 0,
+            posZ: 0,
+            targetX: 0,
+            targetZ: 0,
+            rotY: 0,
+            walkTimer: 0
+          }
+        ],
+        selectedCowId: null,
+        pendingPenBuyIndex: null,
+        minigameActive: false,
+        minigameType: null,
+        timeFreeze: false
+      };
+
+      try {
+        const saved = localStorage.getItem('duudh_save_v1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.cows)) {
+            gameState = Object.assign(gameState, parsed);
+          }
+        }
+      } catch (e) {}
+
+      function saveGame() {
+        try {
+          const toSave = {
+            synn: gameState.synn,
+            day: gameState.day,
+            daySecondsLeft: gameState.daySecondsLeft,
+            supplies: gameState.supplies,
+            unlockedPens: gameState.unlockedPens,
+            cows: gameState.cows
+          };
+          localStorage.setItem('duudh_save_v1', JSON.stringify(toSave));
+        } catch (e) {}
+      }
+
+      /* --- UI Toast helper --- */
+      let toastTimer = null;
+      function showToast(msg) {
+        const t = document.getElementById('game-toast');
+        t.innerHTML = msg;
+        t.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          t.classList.remove('show');
+        }, 2800);
+      }
+
+      function spawnFloatingFx(text, color = '#2e7d32') {
+        const container = document.getElementById('fx-container');
+        const fx = document.createElement('div');
+        fx.className = 'floating-fx';
+        fx.style.color = color;
+        fx.style.left = '50%';
+        fx.style.bottom = '140px';
+        fx.textContent = text;
+        container.appendChild(fx);
+        setTimeout(() => fx.remove(), 1250);
+      }
+
+      /* --- Day Timer System --- */
+      let dayClockInterval = null;
+
+      function startDayClock() {
+        if (dayClockInterval) clearInterval(dayClockInterval);
+        dayClockInterval = setInterval(() => {
+          if (gameState.timeFreeze) return;
+
+          gameState.daySecondsLeft--;
+          if (gameState.daySecondsLeft <= 0) {
+            triggerDayRollover();
+          }
+          updateTimerUI();
+        }, 1000);
+      }
+
+      function updateTimerUI() {
+        const total = Math.max(0, gameState.daySecondsLeft);
+        const mins = Math.floor(total / 60);
+        const secs = total % 60;
+        const str = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        document.getElementById('countdown-display').textContent = str;
+        document.getElementById('day-num-display').textContent = `Day ${gameState.day}`;
+      }
+
+      function triggerDayRollover() {
+        gameState.day++;
+        gameState.daySecondsLeft = 300;
+
+        let totalMilkProduced = 0;
+        gameState.cows.forEach(cow => {
+          cow.ageDays++;
+          const actionsDone = (cow.careDone.wash ? 1 : 0) + (cow.careDone.feed ? 1 : 0) + (cow.careDone.pet ? 1 : 0);
+
+          if (actionsDone === 3) {
+            cow.careScore = Math.min(100, cow.careScore + 8);
+          } else if (actionsDone === 2) {
+            cow.careScore = Math.min(100, cow.careScore + 2);
+          } else if (actionsDone === 1) {
+            cow.careScore = Math.max(10, cow.careScore - 6);
+          } else {
+            cow.careScore = Math.max(5, cow.careScore - 15);
+          }
+          cow.lifetimeCareScore = Math.round((cow.lifetimeCareScore * (cow.ageDays - 1) + cow.careScore) / cow.ageDays);
+          cow.careDone = { wash: false, feed: false, pet: false };
+          cow.milkReady = true;
+          const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+          totalMilkProduced += breed ? breed.yield : 1;
+        });
+
+        const banner = document.getElementById('day-rollover-banner');
+        document.getElementById('rollover-title').textContent = `☀️ Good Morning! Day ${gameState.day}`;
+        document.getElementById('rollover-desc').textContent = `${gameState.cows.length} cows are ready for care. ${totalMilkProduced}L of fresh milk produced!`;
+        banner.classList.add('show');
+        playSound('moo');
+        setTimeout(() => banner.classList.remove('show'), 3800);
+
+        saveGame();
+        updateHUD();
+        refreshHarvestModal();
+        generateMarketOffers();
+        if (gameState.selectedCowId) {
+          updateCowActionToolbar(gameState.selectedCowId);
+        }
+      }
+
+      /* --- 3D Scene Implementation --- */
+      let scene, camera, renderer, controls;
+      let penGroups = [];
+      let cowMeshes = new Map();
+      let raycaster, mouse;
+      let hoveredCow = null;
+      let windmillRotor = null;
+      let particlesSystem = null;
+
+      function init3DScene() {
+        const container = document.getElementById('canvas-container');
+        const width = container.clientWidth || window.innerWidth;
+        const height = container.clientHeight || window.innerHeight;
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xbfe3f7);
+        scene.fog = new THREE.Fog(0xbfe3f7, 45, 140);
+
+        camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 300);
+        camera.position.set(0, 36, 44);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        if (window.THREE && window.THREE.OrbitControls) {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.08;
+          controls.maxPolarAngle = Math.PI / 2.15;
+          controls.minDistance = 8;
+          controls.maxDistance = 110;
+          controls.target.set(0, 2, 0);
+        } else {
+          controls = setupFallbackControls(camera, renderer.domElement);
+        }
+
+        const hemiLight = new THREE.HemisphereLight(0xfff7e6, 0x689f38, 0.75);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffaed, 0.95);
+        dirLight.position.set(30, 45, 25);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        buildFarmEnvironment();
+        buildPens3D();
+        syncCowMeshes();
+
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+
+        window.addEventListener('resize', onWindowResize);
+        container.addEventListener('pointermove', onPointerMove);
+        container.addEventListener('pointerdown', onPointerClick);
+
+        animate();
+      }
+
+      function setupFallbackControls(cam, dom) {
+        let isDown = false;
+        let lastX = 0, lastY = 0;
+        const target = new THREE.Vector3(0, 2, 0);
+        dom.addEventListener('pointerdown', (e) => { isDown = true; lastX = e.clientX; lastY = e.clientY; });
+        window.addEventListener('pointerup', () => { isDown = false; });
+        dom.addEventListener('pointermove', (e) => {
+          if (!isDown) return;
+          const dx = (e.clientX - lastX) * 0.006;
+          const dy = (e.clientY - lastY) * 0.006;
+          lastX = e.clientX; lastY = e.clientY;
+          cam.position.x += dx * 10;
+          cam.position.y -= dy * 10;
+          cam.lookAt(target);
+        });
+        dom.addEventListener('wheel', (e) => {
+          cam.position.multiplyScalar(e.deltaY > 0 ? 1.05 : 0.95);
+          cam.lookAt(target);
+        });
+        return { update: () => {}, target: target };
+      }
+
+      function createSpotTexture(baseColorHex, spotColorHex, style = 'patches') {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = baseColorHex;
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.fillStyle = spotColorHex;
+        if (style === 'patches') {
+          for (let i = 0; i < 7; i++) {
+            const cx = (i * 73) % 256;
+            const cy = (i * 109) % 256;
+            const r = 24 + (i % 3) * 16;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, r, r * 0.8, i, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (style === 'strawberry') {
+          ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < 6; i++) {
+            const cx = (i * 80) % 256;
+            const cy = (i * 90) % 256;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      }
+
+      function createCowNameSprite(name, level) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(255, 253, 245, 0.92)';
+        ctx.strokeStyle = '#5d4037';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(4, 4, 248, 56, 28);
+        else ctx.rect(4, 4, 248, 56);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 23px Fredoka, Nunito, sans-serif';
+        ctx.fillStyle = '#3e2723';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`🐮 ${name} (L${level})`, 128, 33);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(2.8, 0.7, 1);
+        sprite.position.set(0, 3.4, 0);
+        sprite.renderOrder = 999;
+        return sprite;
+      }
+
+      function updateCow3DNameTag(cow) {
+        const mesh = cowMeshes.get(cow.id);
+        if (!mesh) return;
+        if (mesh.userData.nameSprite) {
+          mesh.remove(mesh.userData.nameSprite);
+        }
+        const newSprite = createCowNameSprite(cow.name, cow.level);
+        mesh.add(newSprite);
+        mesh.userData.nameSprite = newSprite;
+      }
+
+      function buildFarmEnvironment() {
+        const groundGeo = new THREE.PlaneGeometry(220, 220, 16, 16);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x7cb342, roughness: 0.9, metalness: 0.05 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const pathGeo = new THREE.PlaneGeometry(90, 8);
+        const pathMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8, roughness: 0.95 });
+        const path = new THREE.Mesh(pathGeo, pathMat);
+        path.rotation.x = -Math.PI / 2;
+        path.position.set(0, 0.02, 0);
+        path.receiveShadow = true;
+        scene.add(path);
+
+        const barn = new THREE.Group();
+        const barnWalls = new THREE.Mesh(
+          new THREE.BoxGeometry(22, 12, 14),
+          new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.7 })
+        );
+        barnWalls.position.y = 6;
+        barnWalls.castShadow = true;
+        barn.add(barnWalls);
+
+        const roofGeo = new THREE.ConeGeometry(13, 6, 4);
+        roofGeo.rotateY(Math.PI / 4);
+        const barnRoof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.6 }));
+        barnRoof.position.y = 15;
+        barnRoof.scale.set(1.1, 1, 1.25);
+        barn.add(barnRoof);
+        barn.position.set(0, 0, -32);
+        scene.add(barn);
+
+        const windmill = new THREE.Group();
+        const tower = new THREE.Mesh(
+          new THREE.CylinderGeometry(2.5, 4, 18, 8),
+          new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.8 })
+        );
+        tower.position.y = 9;
+        tower.castShadow = true;
+        windmill.add(tower);
+
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(3, 4, 8), new THREE.MeshStandardMaterial({ color: 0x5d4037 }));
+        cap.position.y = 20;
+        windmill.add(cap);
+
+        windmillRotor = new THREE.Group();
+        windmillRotor.position.set(0, 18, 3.2);
+        const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8 });
+        for (let b = 0; b < 4; b++) {
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 0.15), bladeMat);
+          blade.position.y = 4.5;
+          const bladePivot = new THREE.Group();
+          bladePivot.rotation.z = (Math.PI / 2) * b;
+          bladePivot.add(blade);
+          windmillRotor.add(bladePivot);
+        }
+        windmill.add(windmillRotor);
+        windmill.position.set(38, 0, -30);
+        scene.add(windmill);
+
+        const treeCoords = [
+          [-45, -28], [-42, -18], [-46, 12], [-44, 26],
+          [45, -20], [42, 10], [44, 25], [20, -32], [-22, -32]
+        ];
+        const trunkGeo = new THREE.CylinderGeometry(0.6, 0.9, 3.5, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
+        const foliageGeo = new THREE.SphereGeometry(3.5, 7, 6);
+        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x43a047, roughness: 0.85, flatShading: true });
+
+        treeCoords.forEach(([tx, tz]) => {
+          const tree = new THREE.Group();
+          const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+          trunk.position.y = 1.75;
+          trunk.castShadow = true;
+          tree.add(trunk);
+
+          const fol = new THREE.Mesh(foliageGeo, foliageMat);
+          fol.position.y = 5.2;
+          fol.castShadow = true;
+          tree.add(fol);
+
+          tree.position.set(tx, 0, tz);
+          scene.add(tree);
+        });
+
+        const partGeo = new THREE.BufferGeometry();
+        const partCount = 100;
+        const positions = new Float32Array(partCount * 3);
+        for (let i = 0; i < partCount * 3; i += 3) {
+          positions[i] = (Math.random() - 0.5) * 110;
+          positions[i + 1] = 1 + Math.random() * 14;
+          positions[i + 2] = (Math.random() - 0.5) * 90;
+        }
+        partGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particlesSystem = new THREE.Points(partGeo, new THREE.PointsMaterial({ color: 0xfff9c4, size: 0.35, transparent: true, opacity: 0.65 }));
+        scene.add(particlesSystem);
+      }
+
+      function getPenCoordinates(index) {
+        const isBottomRow = index >= 5;
+        const col = index % 5;
+        const x = (col - 2) * 17.5;
+        const z = isBottomRow ? 13 : -13;
+        return { x, z };
+      }
+
+      function buildPens3D() {
+        penGroups.forEach(g => scene.remove(g));
+        penGroups = [];
+
+        for (let i = 0; i < 10; i++) {
+          const isUnlocked = gameState.unlockedPens.includes(i);
+          const coords = getPenCoordinates(i);
+
+          const group = new THREE.Group();
+          group.position.set(coords.x, 0, coords.z);
+          group.userData = { penIndex: i, isPen: true };
+
+          const padGeo = new THREE.PlaneGeometry(14, 14);
+          const padMat = new THREE.MeshStandardMaterial({
+            color: isUnlocked ? 0x8bc34a : 0x757575,
+            roughness: 0.95
+          });
+          const paddock = new THREE.Mesh(padGeo, padMat);
+          paddock.rotation.x = -Math.PI / 2;
+          paddock.position.y = 0.01;
+          paddock.receiveShadow = true;
+          group.add(paddock);
+
+          const fenceColor = isUnlocked ? 0x8d6e63 : 0x616161;
+          const fenceMat = new THREE.MeshStandardMaterial({ color: fenceColor, roughness: 0.8 });
+          const railGeo = new THREE.BoxGeometry(14, 0.25, 0.25);
+          const postGeo = new THREE.BoxGeometry(0.4, 2, 0.4);
+
+          const sides = [
+            { x: 0, z: -7, rot: 0 },
+            { x: 0, z: 7, rot: 0, hasGate: true },
+            { x: -7, z: 0, rot: Math.PI / 2 },
+            { x: 7, z: 0, rot: Math.PI / 2 }
+          ];
+
+          sides.forEach(s => {
+            if (!s.hasGate) {
+              const r1 = new THREE.Mesh(railGeo, fenceMat);
+              r1.position.set(s.x, 0.7, s.z);
+              r1.rotation.y = s.rot;
+              r1.castShadow = true;
+              group.add(r1);
+
+              const r2 = new THREE.Mesh(railGeo, fenceMat);
+              r2.position.set(s.x, 1.3, s.z);
+              r2.rotation.y = s.rot;
+              r2.castShadow = true;
+              group.add(r2);
+            } else {
+              const halfRail = new THREE.BoxGeometry(4.8, 0.25, 0.25);
+              const rl = new THREE.Mesh(halfRail, fenceMat);
+              rl.position.set(-4.6, 0.7, s.z);
+              rl.castShadow = true;
+              group.add(rl);
+
+              const rr = new THREE.Mesh(halfRail, fenceMat);
+              rr.position.set(4.6, 0.7, s.z);
+              rr.castShadow = true;
+              group.add(rr);
+            }
+          });
+
+          const corners = [[-7, -7], [7, -7], [-7, 7], [7, 7], [-2.2, 7], [2.2, 7]];
+          corners.forEach(([cx, cz]) => {
+            const post = new THREE.Mesh(postGeo, fenceMat);
+            post.position.set(cx, 1, cz);
+            post.castShadow = true;
+            group.add(post);
+          });
+
+          if (isUnlocked) {
+            const trough = new THREE.Mesh(
+              new THREE.BoxGeometry(2.8, 1, 1.4),
+              new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.8 })
+            );
+            trough.position.set(-4.5, 0.5, -4.5);
+            trough.castShadow = true;
+            group.add(trough);
+
+            const water = new THREE.Mesh(
+              new THREE.BoxGeometry(2.5, 0.2, 1.1),
+              new THREE.MeshStandardMaterial({ color: 0x4fc3f7, roughness: 0.1, metalness: 0.6 })
+            );
+            water.position.set(-4.5, 0.85, -4.5);
+            group.add(water);
+
+            const hay = new THREE.Mesh(
+              new THREE.CylinderGeometry(1.2, 1.2, 1.5, 8),
+              new THREE.MeshStandardMaterial({ color: 0xffd54f, roughness: 0.9 })
+            );
+            hay.rotation.z = Math.PI / 2;
+            hay.position.set(4.8, 0.6, -4.8);
+            hay.castShadow = true;
+            group.add(hay);
+          } else {
+            const lockSign = new THREE.Mesh(
+              new THREE.BoxGeometry(2.4, 1.2, 0.2),
+              new THREE.MeshStandardMaterial({ color: 0xd32f2f })
+            );
+            lockSign.position.set(0, 1.5, 7);
+            group.add(lockSign);
+          }
+
+          scene.add(group);
+          penGroups.push(group);
+        }
+      }
+
+      function createProceduralCowMesh(cowData) {
+        const breed = COW_BREEDS.find(b => b.id === cowData.breedId) || COW_BREEDS[0];
+        const cowGroup = new THREE.Group();
+        cowGroup.userData = { cowId: cowData.id, isCow: true };
+
+        const scale = 0.55 + ((cowData.level - 1) / 14) * 0.5;
+        const root = new THREE.Group();
+
+        let bodyMat;
+        if (breed.golden) {
+          bodyMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.18 });
+        } else if (breed.fantasy) {
+          const spotTex = createSpotTexture(breed.coat, breed.spots, 'strawberry');
+          bodyMat = new THREE.MeshStandardMaterial({ map: spotTex, roughness: 0.5 });
+        } else if (breed.spots !== breed.coat) {
+          const spotTex = createSpotTexture(breed.coat, breed.spots, 'patches');
+          bodyMat = new THREE.MeshStandardMaterial({ map: spotTex, roughness: 0.7 });
+        } else {
+          bodyMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(breed.coat), roughness: 0.75 });
+        }
+
+        const bodyGeo = new THREE.BoxGeometry(1.8, 1.4, 2.8);
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.set(0, 1.8, 0);
+        body.castShadow = true;
+        root.add(body);
+
+        if (breed.hump) {
+          const humpGeo = new THREE.SphereGeometry(0.55, 7, 7);
+          humpGeo.scale(1, 1.3, 1.2);
+          const hump = new THREE.Mesh(humpGeo, bodyMat);
+          hump.position.set(0, 2.7, 0.7);
+          hump.castShadow = true;
+          root.add(hump);
+        }
+
+        if (breed.shaggy) {
+          const fluffGeo = new THREE.BoxGeometry(1.9, 0.6, 2.9);
+          const fluff = new THREE.Mesh(fluffGeo, new THREE.MeshStandardMaterial({ color: 0xbf5f1b, roughness: 0.95 }));
+          fluff.position.set(0, 2.3, 0);
+          root.add(fluff);
+        }
+
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 2.2, 1.6);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.3), bodyMat);
+        head.castShadow = true;
+        headGroup.add(head);
+
+        const muzzleMat = new THREE.MeshStandardMaterial({
+          color: breed.golden ? 0xffea00 : (breed.name === 'Jersey' ? 0x3e2723 : 0xffb7b2),
+          roughness: 0.6
+        });
+        const muzzle = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.6, 0.6), muzzleMat);
+        muzzle.position.set(0, -0.3, 0.8);
+        headGroup.add(muzzle);
+
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 });
+        const pupilMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        [-0.55, 0.55].forEach(ex => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), eyeMat);
+          eye.position.set(ex, 0.15, 0.45);
+          headGroup.add(eye);
+
+          const shine = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), pupilMat);
+          shine.position.set(ex + (ex > 0 ? 0.05 : -0.05), 0.22, 0.58);
+          headGroup.add(shine);
+        });
+
+        [-0.7, 0.7].forEach(earX => {
+          const ear = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.2), bodyMat);
+          ear.position.set(earX, 0.4, -0.2);
+          ear.rotation.z = earX > 0 ? -0.35 : 0.35;
+          headGroup.add(ear);
+        });
+
+        const hornColor = breed.golden ? 0xfff59d : (breed.fantasy ? 0xf48fb1 : 0xffffff);
+        const hornMat = new THREE.MeshStandardMaterial({ color: hornColor, roughness: 0.3 });
+
+        if (breed.horns === 'lyre') {
+          [-0.45, 0.45].forEach(hx => {
+            const h = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.12, 0.9, 6), hornMat);
+            h.position.set(hx, 0.85, 0);
+            h.rotation.z = hx > 0 ? 0.45 : -0.45;
+            h.rotation.x = -0.3;
+            headGroup.add(h);
+          });
+        } else if (breed.horns === 'wide') {
+          [-0.5, 0.5].forEach(hx => {
+            const h = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.15, 1.4, 6), hornMat);
+            h.position.set(hx * 1.5, 0.7, -0.1);
+            h.rotation.z = hx > 0 ? -1.1 : 1.1;
+            headGroup.add(h);
+          });
+        } else if (breed.horns === 'giant') {
+          [-0.6, 0.6].forEach(hx => {
+            const h = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.22, 2.2, 8), hornMat);
+            h.position.set(hx * 1.8, 1.1, -0.2);
+            h.rotation.z = hx > 0 ? -0.85 : 0.85;
+            h.rotation.x = -0.25;
+            headGroup.add(h);
+          });
+        } else {
+          [-0.4, 0.4].forEach(hx => {
+            const h = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.35, 5), hornMat);
+            h.position.set(hx, 0.7, 0);
+            h.rotation.z = hx > 0 ? -0.3 : 0.3;
+            headGroup.add(h);
+          });
+        }
+
+        root.add(headGroup);
+
+        const hoofMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9 });
+        const legOffsets = [[-0.6, -0.8], [0.6, -0.8], [-0.6, 0.8], [0.6, 0.8]];
+        const legs = [];
+
+        legOffsets.forEach(([lx, lz]) => {
+          const legGroup = new THREE.Group();
+          legGroup.position.set(lx, 1.2, lz);
+
+          const legMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 1.2, 6), bodyMat);
+          legMesh.position.y = -0.5;
+          legMesh.castShadow = true;
+          legGroup.add(legMesh);
+
+          const hoof = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.22, 0.48), hoofMat);
+          hoof.position.y = -1.05;
+          legGroup.add(hoof);
+
+          root.add(legGroup);
+          legs.push(legGroup);
+        });
+
+        const udder = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 6), new THREE.MeshStandardMaterial({ color: 0xffab91, roughness: 0.5 }));
+        udder.position.set(0, 1.05, -0.3);
+        root.add(udder);
+
+        const tailGroup = new THREE.Group();
+        tailGroup.position.set(0, 2.2, -1.4);
+        const tailMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 4), bodyMat);
+        tailMesh.position.y = -0.4;
+        tailMesh.rotation.x = -0.2;
+        tailGroup.add(tailMesh);
+        const tailTuft = new THREE.Mesh(new THREE.SphereGeometry(0.14, 5, 5), hoofMat);
+        tailTuft.position.set(0, -0.8, -0.1);
+        tailGroup.add(tailTuft);
+        root.add(tailGroup);
+
+        if (breed.golden) {
+          const sparkle = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.3, 0),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+          );
+          sparkle.position.set(0, 3.2, 0);
+          root.add(sparkle);
+          cowGroup.userData.sparkleMesh = sparkle;
+        }
+
+        root.scale.set(scale, scale, scale);
+        cowGroup.add(root);
+
+        const nameSprite = createCowNameSprite(cowData.name, cowData.level);
+        cowGroup.add(nameSprite);
+        cowGroup.userData.nameSprite = nameSprite;
+
+        cowGroup.userData.legs = legs;
+        cowGroup.userData.head = headGroup;
+        cowGroup.userData.tail = tailGroup;
+        cowGroup.userData.walkPhase = Math.random() * Math.PI * 2;
+
+        return cowGroup;
+      }
+
+      function syncCowMeshes() {
+        const currentIds = new Set(gameState.cows.map(c => c.id));
+
+        cowMeshes.forEach((mesh, id) => {
+          if (!currentIds.has(id)) {
+            scene.remove(mesh);
+            cowMeshes.delete(id);
+          }
+        });
+
+        gameState.cows.forEach(cow => {
+          let mesh = cowMeshes.get(cow.id);
+          const penCoords = getPenCoordinates(cow.penIndex);
+
+          if (!mesh) {
+            mesh = createProceduralCowMesh(cow);
+            cow.posX = penCoords.x + (Math.random() - 0.5) * 8;
+            cow.posZ = penCoords.z + (Math.random() - 0.5) * 8;
+            cow.targetX = cow.posX;
+            cow.targetZ = cow.posZ;
+            mesh.position.set(cow.posX, 0, cow.posZ);
+            scene.add(mesh);
+            cowMeshes.set(cow.id, mesh);
+          } else {
+            const scale = 0.55 + ((cow.level - 1) / 14) * 0.5;
+            mesh.children[0].scale.set(scale, scale, scale);
+            updateCow3DNameTag(cow);
+          }
+        });
+      }
+
+      /* --- Raycasting Interaction & Toolbar Slide-Up --- */
+      function onPointerMove(e) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        const cowGroupsList = Array.from(cowMeshes.values());
+        const intersects = raycaster.intersectObjects(cowGroupsList, true);
+
+        const card = document.getElementById('cow-hover-card');
+        if (intersects.length > 0) {
+          let topObj = intersects[0].object;
+          while (topObj.parent && !topObj.userData.isCow) {
+            topObj = topObj.parent;
+          }
+          if (topObj && topObj.userData.isCow) {
+            hoveredCow = topObj;
+            const cowData = gameState.cows.find(c => c.id === topObj.userData.cowId);
+            if (cowData) {
+              const breed = COW_BREEDS.find(b => b.id === cowData.breedId);
+              card.style.display = 'block';
+              card.style.left = e.clientX + 'px';
+              card.style.top = e.clientY + 'px';
+              card.innerHTML = `<strong>🐮 ${cowData.name}</strong> • ${breed.name} (Lvl ${cowData.level})`;
+              document.body.style.cursor = 'pointer';
+              return;
+            }
+          }
+        }
+        hoveredCow = null;
+        card.style.display = 'none';
+        document.body.style.cursor = 'default';
+      }
+
+      function onPointerClick(e) {
+        if (e.target.closest('#ui-root') && !e.target.closest('#canvas-container')) {
+          return;
+        }
+
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // Raycast cows first
+        const cowGroupsList = Array.from(cowMeshes.values());
+        const cowIntersects = raycaster.intersectObjects(cowGroupsList, true);
+
+        if (cowIntersects.length > 0) {
+          let topObj = cowIntersects[0].object;
+          while (topObj.parent && !topObj.userData.isCow) {
+            topObj = topObj.parent;
+          }
+          if (topObj && topObj.userData.isCow) {
+            // Smoothly slide up the bottom action bar/toolbar for this cow!
+            openCowActionToolbar(topObj.userData.cowId);
+            playSound('pet');
+            return;
+          }
+        }
+
+        // Pen click
+        const penIntersects = raycaster.intersectObjects(penGroups, true);
+        if (penIntersects.length > 0) {
+          let penObj = penIntersects[0].object;
+          while (penObj.parent && !penObj.userData.isPen) {
+            penObj = penObj.parent;
+          }
+          if (penObj && penObj.userData.isPen) {
+            selectPen(penObj.userData.penIndex);
+            closeCowToolbar();
+            return;
+          }
+        }
+
+        // Empty ground click dismisses the toolbar
+        closeCowToolbar();
+      }
+
+      /* ========================================================== */
+      /* SLIDE-UP COW ACTION BAR / TOOLBAR LOGIC                    */
+      /* ========================================================== */
+      function openCowActionToolbar(cowId) {
+        const cow = gameState.cows.find(c => c.id === cowId);
+        if (!cow) return;
+
+        gameState.selectedCowId = cowId;
+
+        // Smooth camera glide to the cow
+        const mesh = cowMeshes.get(cowId);
+        if (mesh && controls && controls.target) {
+          controls.target.set(mesh.position.x, 2, mesh.position.z);
+          camera.position.set(mesh.position.x, mesh.position.y + 14, mesh.position.z + 18);
+        }
+
+        updateCowActionToolbar(cowId);
+
+        // Slide up smoothly
+        const toolbar = document.getElementById('cow-action-toolbar');
+        toolbar.classList.add('open');
+
+        // Hide pen dock while cow toolbar is focused to prevent overlap
+        document.getElementById('bottom-dock').style.opacity = '0.35';
+        document.getElementById('bottom-dock').style.pointerEvents = 'none';
+      }
+
+      function closeCowToolbar() {
+        const toolbar = document.getElementById('cow-action-toolbar');
+        toolbar.classList.remove('open');
+        document.getElementById('bottom-dock').style.opacity = '1';
+        document.getElementById('bottom-dock').style.pointerEvents = 'auto';
+
+        const nameInput = document.getElementById('tb-name-input');
+        const nameHeader = document.getElementById('tb-name');
+        nameInput.style.display = 'none';
+        nameHeader.style.display = 'inline-block';
+        document.getElementById('tb-rename-btn').textContent = '✏️ Rename';
+      }
+
+      function updateCowActionToolbar(cowId) {
+        const cow = gameState.cows.find(c => c.id === cowId);
+        if (!cow) return;
+
+        const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+        const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+
+        document.getElementById('tb-name').textContent = cow.name;
+        document.getElementById('tb-breed').textContent = breed.name;
+        document.getElementById('tb-pen').textContent = `Pen ${cow.penIndex + 1}`;
+        document.getElementById('tb-level').textContent = `Level ${cow.level} ${cow.level >= 15 ? '(Master)' : (cow.level < 4 ? '(Calf)' : '(Adult)')}`;
+
+        const reqXp = cow.level * 100;
+        document.getElementById('tb-xp').textContent = cow.level >= 15 ? 'MAX XP' : `${cow.xp} / ${reqXp} XP`;
+        document.getElementById('tb-care-score').textContent = `Score: ${cow.careScore}/100`;
+
+        const gradeBadge = document.getElementById('tb-grade');
+        gradeBadge.className = `grade-pill grade-${grade}`;
+        gradeBadge.textContent = `Grade ${grade}${cow.finalGrade ? ' (Master)' : ''}`;
+
+        // 1. Feed Button
+        const btnFeed = document.getElementById('tb-btn-feed');
+        const feedSub = document.getElementById('tb-feed-sub');
+        if (cow.careDone.feed) {
+          btnFeed.className = 'action-bar-btn done';
+          btnFeed.disabled = true;
+          feedSub.textContent = 'Fed Today ✓';
+        } else {
+          btnFeed.className = 'action-bar-btn';
+          btnFeed.disabled = gameState.supplies.grass < 1;
+          feedSub.textContent = `1 Grass (${gameState.supplies.grass} left)`;
+        }
+
+        // 2. Wash Button
+        const btnWash = document.getElementById('tb-btn-wash');
+        const washSub = document.getElementById('tb-wash-sub');
+        if (cow.careDone.wash) {
+          btnWash.className = 'action-bar-btn done';
+          btnWash.disabled = true;
+          washSub.textContent = 'Washed Today ✓';
+        } else {
+          btnWash.className = 'action-bar-btn';
+          btnWash.disabled = gameState.supplies.cleaning < 1;
+          washSub.textContent = `1 Soap (${gameState.supplies.cleaning} left)`;
+        }
+
+        // 3. Pet Button
+        const btnPet = document.getElementById('tb-btn-pet');
+        const petSub = document.getElementById('tb-pet-sub');
+        if (cow.careDone.pet) {
+          btnPet.className = 'action-bar-btn done';
+          btnPet.disabled = true;
+          petSub.textContent = 'Petted Today ✓';
+        } else {
+          btnPet.className = 'action-bar-btn';
+          btnPet.disabled = false;
+          petSub.textContent = 'Affection (Free)';
+        }
+
+        // 4. Collect Milk Button
+        const btnMilk = document.getElementById('tb-btn-milk');
+        const milkSub = document.getElementById('tb-milk-sub');
+        const pricePerL = GRADE_PRICES[grade] || 10;
+        const totalPayout = breed.yield * pricePerL;
+
+        if (cow.milkReady) {
+          btnMilk.className = 'action-bar-btn milk-ready';
+          btnMilk.disabled = false;
+          milkSub.textContent = `🥛 ${breed.yield}L ready (+${totalPayout} ✦)`;
+        } else {
+          btnMilk.className = 'action-bar-btn done';
+          btnMilk.disabled = true;
+          milkSub.textContent = 'Harvested Today ✓';
+        }
+
+        // 5. Sell / Trade Subtext
+        const baseRefund = Math.floor(breed.cost * 0.5);
+        const levelBonus = Math.floor(baseRefund * (cow.level - 1) * 0.05);
+        document.getElementById('tb-sell-sub').textContent = `${baseRefund + levelBonus} ✦ or Market`;
+      }
+
+      function toggleRenameToolbarCow() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow) return;
+
+        const nameHeader = document.getElementById('tb-name');
+        const nameInput = document.getElementById('tb-name-input');
+        const renameBtn = document.getElementById('tb-rename-btn');
+
+        if (nameInput.style.display === 'none') {
+          nameHeader.style.display = 'none';
+          nameInput.style.display = 'inline-block';
+          nameInput.value = cow.name;
+          nameInput.focus();
+          nameInput.select();
+          renameBtn.textContent = '💾 Save';
+        } else {
+          const newName = nameInput.value.trim();
+          if (newName) {
+            cow.name = newName;
+            updateCow3DNameTag(cow);
+            showToast(`✨ Cow renamed to "${cow.name}"!`);
+            playSound('coin');
+            saveGame();
+          }
+          nameHeader.textContent = cow.name;
+          nameHeader.style.display = 'inline-block';
+          nameInput.style.display = 'none';
+          renameBtn.textContent = '✏️ Rename';
+          generateMarketOffers(true);
+        }
+      }
+
+      function handleToolbarFeed() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow || cow.careDone.feed) return;
+
+        if (gameState.supplies.grass < 1) {
+          showToast('❌ Out of Grass! Buy more in the Farm Shop.');
+          playSound('wash');
+          return;
+        }
+
+        gameState.supplies.grass--;
+        cow.careDone.feed = true;
+        awardCowXp(cow, 50);
+        showToast(`🌿 ${cow.name} happily munched sweetgrass! (+50 XP)`);
+        spawnFloatingFx('+50 XP 🌿', '#4caf50');
+        playSound('feed');
+
+        saveGame();
+        updateHUD();
+        updateCowActionToolbar(cow.id);
+      }
+
+      function handleToolbarWash() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow || cow.careDone.wash) return;
+
+        if (gameState.supplies.cleaning < 1) {
+          showToast('❌ Out of Cleaning Kits! Buy more in the Farm Shop.');
+          playSound('wash');
+          return;
+        }
+
+        gameState.supplies.cleaning--;
+        cow.careDone.wash = true;
+        awardCowXp(cow, 50);
+        showToast(`🧼 ${cow.name} is sparkling clean! (+50 XP)`);
+        spawnFloatingFx('+50 XP 🧼', '#03a9f4');
+        playSound('wash');
+
+        saveGame();
+        updateHUD();
+        updateCowActionToolbar(cow.id);
+      }
+
+      function handleToolbarPet() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow || cow.careDone.pet) return;
+
+        cow.careDone.pet = true;
+        awardCowXp(cow, 50);
+        showToast(`❤️ ${cow.name} loved the affection! (+50 XP)`);
+        spawnFloatingFx('+50 XP ❤️', '#e91e63');
+        playSound('pet');
+
+        saveGame();
+        updateHUD();
+        updateCowActionToolbar(cow.id);
+      }
+
+      function handleToolbarCollectMilk() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow || !cow.milkReady) return;
+
+        const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+        const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+        const pricePerL = GRADE_PRICES[grade] || 10;
+        const payout = breed.yield * pricePerL;
+
+        cow.milkReady = false;
+        gameState.synn += payout;
+
+        playSound('milk');
+        setTimeout(() => playSound('coin'), 250);
+        showToast(`🥛 Harvested ${breed.yield}L (${grade}) from ${cow.name} for +${payout} Synn!`);
+        spawnFloatingFx(`+${payout} ✦ Synn 🥛`, '#ff9800');
+
+        saveGame();
+        updateHUD();
+        updateCowActionToolbar(cow.id);
+      }
+
+      function handleToolbarSellTrade() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow) return;
+
+        const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+        const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+        const baseRefund = Math.floor(breed.cost * 0.5);
+        const levelBonus = Math.floor(baseRefund * (cow.level - 1) * 0.05);
+        const totalDirect = baseRefund + levelBonus;
+
+        document.getElementById('sell-modal-avatar').textContent = '🐮';
+        document.getElementById('sell-modal-cow-name').textContent = cow.name;
+        document.getElementById('sell-modal-cow-info').textContent = `${breed.name} • Level ${cow.level} • Grade ${grade}`;
+        document.getElementById('sell-direct-amount').textContent = `${totalDirect} ✦`;
+
+        document.getElementById('modal-sell-options').style.display = 'flex';
+      }
+
+      function confirmDirectSell() {
+        const cow = gameState.cows.find(c => c.id === gameState.selectedCowId);
+        if (!cow) return;
+
+        if (gameState.cows.length <= 1) {
+          showToast("⚠️ You can't sell your only remaining cow!");
+          return;
+        }
+
+        const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+        const baseRefund = Math.floor(breed.cost * 0.5);
+        const levelBonus = Math.floor(baseRefund * (cow.level - 1) * 0.05);
+        const payout = baseRefund + levelBonus;
+
+        gameState.synn += payout;
+        gameState.cows = gameState.cows.filter(c => c.id !== cow.id);
+
+        closeAllModals();
+        closeCowToolbar();
+        syncCowMeshes();
+        updateHUD();
+        showToast(`💰 Sold ${cow.name} for +${payout} Synn!`);
+        playSound('coin');
+        saveGame();
+      }
+
+      function openMarketForCow() {
+        closeAllModals();
+        openMarketModal();
+      }
+
+      function awardCowXp(cow, amount) {
+        if (cow.level >= 15) return;
+        cow.xp += amount;
+        let reqXp = cow.level * 100;
+
+        while (cow.xp >= reqXp && cow.level < 15) {
+          cow.xp -= reqXp;
+          cow.level++;
+          reqXp = cow.level * 100;
+          showToast(`⭐ ${cow.name} grew to Level ${cow.level}!`);
+          playSound('coin');
+
+          if (cow.level === 15) {
+            const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+            cow.finalGrade = calculateGrade(cow.lifetimeCareScore, breed);
+            showToast(`🏆 ${cow.name} reached Level 15! Lifetime Grade: ${cow.finalGrade}`);
+          }
+        }
+        syncCowMeshes();
+      }
+
+      /* --- Animation Loop --- */
+      let clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const delta = clock.getDelta();
+        const time = clock.getElapsedTime();
+
+        if (windmillRotor) windmillRotor.rotation.z -= delta * 0.8;
+        if (particlesSystem) particlesSystem.rotation.y = time * 0.02;
+
+        gameState.cows.forEach(cow => {
+          const mesh = cowMeshes.get(cow.id);
+          if (!mesh) return;
+
+          const penCoords = getPenCoordinates(cow.penIndex);
+
+          cow.walkTimer -= delta;
+          if (cow.walkTimer <= 0) {
+            cow.walkTimer = 3 + Math.random() * 5;
+            cow.targetX = penCoords.x + (Math.random() - 0.5) * 9;
+            cow.targetZ = penCoords.z + (Math.random() - 0.5) * 9;
+          }
+
+          const dx = cow.targetX - cow.posX;
+          const dz = cow.targetZ - cow.posZ;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+
+          if (dist > 0.2) {
+            const speed = 1.2 * delta;
+            cow.posX += (dx / dist) * speed;
+            cow.posZ += (dz / dist) * speed;
+            cow.rotY = Math.atan2(dx, dz);
+
+            mesh.userData.walkPhase += delta * 7;
+            const phase = mesh.userData.walkPhase;
+
+            if (mesh.userData.legs) {
+              mesh.userData.legs[0].rotation.x = Math.sin(phase) * 0.35;
+              mesh.userData.legs[1].rotation.x = -Math.sin(phase) * 0.35;
+              mesh.userData.legs[2].rotation.x = -Math.sin(phase) * 0.35;
+              mesh.userData.legs[3].rotation.x = Math.sin(phase) * 0.35;
+            }
+          } else {
+            if (mesh.userData.legs) {
+              mesh.userData.legs.forEach(l => l.rotation.x *= 0.9);
+            }
+          }
+
+          mesh.position.set(cow.posX, 0, cow.posZ);
+          mesh.rotation.y = THREE.MathUtils.lerp(mesh.rotation.y, cow.rotY, delta * 5);
+
+          if (mesh.userData.head) {
+            mesh.userData.head.rotation.x = Math.sin(time * 2 + cow.breedId) * 0.06;
+          }
+          if (mesh.userData.tail) {
+            mesh.userData.tail.rotation.z = Math.sin(time * 4) * 0.2;
+          }
+          if (mesh.userData.sparkleMesh) {
+            mesh.userData.sparkleMesh.rotation.y += delta * 2;
+          }
+        });
+
+        if (controls && controls.update) controls.update();
+        renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        const container = document.getElementById('canvas-container');
+        const width = container.clientWidth || window.innerWidth;
+        const height = container.clientHeight || window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+      }
+
+      /* --- HUD and UI Updates --- */
+      function updateHUD() {
+        document.getElementById('synn-display').textContent = gameState.synn.toLocaleString();
+        document.getElementById('grass-display').textContent = gameState.supplies.grass;
+        document.getElementById('cleaning-display').textContent = gameState.supplies.cleaning;
+        updateTimerUI();
+
+        const readyCount = gameState.cows.filter(c => c.milkReady).length;
+        const badge = document.getElementById('milk-ready-badge');
+        if (readyCount > 0) {
+          badge.style.display = 'inline-block';
+          badge.textContent = readyCount;
+        } else {
+          badge.style.display = 'none';
+        }
+
+        renderPenDock();
+      }
+
+      function renderPenDock() {
+        const dock = document.getElementById('pen-dock-container');
+        dock.innerHTML = '';
+
+        const overviewBtn = document.createElement('button');
+        overviewBtn.className = 'overview-btn';
+        overviewBtn.innerHTML = '🔭 Whole Ranch';
+        overviewBtn.onclick = () => focusOverview();
+        dock.appendChild(overviewBtn);
+
+        PEN_DATA.forEach((p, idx) => {
+          const isUnlocked = gameState.unlockedPens.includes(idx);
+          const cowCount = gameState.cows.filter(c => c.penIndex === idx).length;
+          const isActive = gameState.selectedPenIndex === idx;
+
+          const pill = document.createElement('div');
+          pill.className = `pen-pill ${isActive ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}`;
+          pill.onclick = () => selectPen(idx);
+
+          pill.innerHTML = `
+            <span class="p-name">${p.name}</span>
+            <span class="p-info">${isUnlocked ? `${cowCount}/5 Cows` : `🔒 ${p.cost}✦`}</span>
+          `;
+          dock.appendChild(pill);
+        });
+      }
+
+      function selectPen(index) {
+        gameState.selectedPenIndex = index;
+        const isUnlocked = gameState.unlockedPens.includes(index);
+
+        if (!isUnlocked) {
+          openBuyPenModal(index);
+          return;
+        }
+
+        renderPenDock();
+        const coords = getPenCoordinates(index);
+        if (controls && controls.target) {
+          controls.target.set(coords.x, 2, coords.z);
+          camera.position.set(coords.x, 22, coords.z + 26);
+        }
+      }
+
+      function focusOverview() {
+        if (controls && controls.target) {
+          controls.target.set(0, 2, 0);
+          camera.position.set(0, 42, 54);
+        }
+      }
+
+      function closeAllModals() {
+        document.querySelectorAll('.modal-backdrop').forEach(m => m.style.display = 'none');
+      }
+
+      /* --- Pen Purchase Modal --- */
+      function openBuyPenModal(index) {
+        const pen = PEN_DATA[index];
+        gameState.pendingPenBuyIndex = index;
+        document.getElementById('buy-pen-title').textContent = `Expand Farm: ${pen.name}`;
+        document.getElementById('buy-pen-cost').textContent = `${pen.cost.toLocaleString()} Synn`;
+        document.getElementById('modal-buy-pen').style.display = 'flex';
+      }
+
+      function confirmPurchasePen() {
+        const idx = gameState.pendingPenBuyIndex;
+        if (idx === null) return;
+        const pen = PEN_DATA[idx];
+
+        if (gameState.synn < pen.cost) {
+          showToast('❌ Not enough Synn to unlock this pen!');
+          playSound('wash');
+          return;
+        }
+
+        gameState.synn -= pen.cost;
+        gameState.unlockedPens.push(idx);
+        gameState.pendingPenBuyIndex = null;
+        closeAllModals();
+
+        buildPens3D();
+        updateHUD();
+        selectPen(idx);
+        showToast(`🎉 ${pen.name} unlocked! Capacity expanded.`);
+        playSound('coin');
+        saveGame();
+      }
+
+      /* --- Farm Shop (Calves & Supplies) --- */
+      function openShopModal() {
+        renderShopCalves();
+        document.getElementById('modal-shop').style.display = 'flex';
+      }
+
+      function switchShopTab(tab) {
+        document.getElementById('shop-tab-calves').style.display = tab === 'calves' ? 'grid' : 'none';
+        document.getElementById('shop-tab-supplies').style.display = tab === 'supplies' ? 'flex' : 'none';
+        document.getElementById('tab-btn-calves').className = `tab-btn ${tab === 'calves' ? 'active' : ''}`;
+        document.getElementById('tab-btn-supplies').className = `tab-btn ${tab === 'supplies' ? 'active' : ''}`;
+      }
+
+      function rollShopName(breedId) {
+        const inp = document.getElementById(`shop-name-input-${breedId}`);
+        if (inp) inp.value = getRandomCuteName();
+      }
+
+      function renderShopCalves() {
+        const grid = document.getElementById('shop-tab-calves');
+        grid.innerHTML = '';
+
+        COW_BREEDS.forEach(b => {
+          const card = document.createElement('div');
+          card.className = `shop-card ${b.golden ? 'golden' : ''}`;
+
+          let penOptionsHtml = '';
+          gameState.unlockedPens.forEach(pIdx => {
+            const count = gameState.cows.filter(c => c.penIndex === pIdx).length;
+            penOptionsHtml += `<option value="${pIdx}" ${count >= 5 ? 'disabled' : ''}>Pen ${pIdx + 1} (${count}/5)</option>`;
+          });
+
+          const initialName = getRandomCuteName();
+
+          card.innerHTML = `
+            <div class="shop-card-head">
+              <div class="shop-avatar" style="background:${b.coat}; color:${b.spots};">🐮</div>
+              <div>
+                <h3 class="shop-card-title">${b.name}</h3>
+                <div class="shop-card-cost">✦ ${b.cost.toLocaleString()} Synn</div>
+              </div>
+            </div>
+            <p class="shop-card-desc">${b.desc}</p>
+            <div class="shop-card-yield">🥛 Yield: ${b.yield} L / day (Grades ${b.minGrade}-${b.maxGrade})</div>
+            
+            <div class="cow-name-input-row">
+              <span style="font-size:11px; font-weight:800; color:#5d4037;">Name:</span>
+              <input type="text" id="shop-name-input-${b.id}" class="cow-name-input" style="flex:1;" value="${initialName}" maxlength="18" placeholder="Name your calf..." />
+              <button class="dice-btn" type="button" title="Roll random name" onclick="rollShopName(${b.id})">🎲</button>
+            </div>
+
+            <div class="buy-action-row">
+              <select class="pen-select" id="shop-pen-select-${b.id}">
+                ${penOptionsHtml}
+              </select>
+              <button class="buy-btn" onclick="adoptCalf(${b.id})">Adopt Calf</button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      function adoptCalf(breedId) {
+        const breed = COW_BREEDS.find(b => b.id === breedId);
+        if (!breed) return;
+
+        if (gameState.synn < breed.cost) {
+          showToast(`❌ Insufficient Synn! Need ${breed.cost} Synn.`);
+          playSound('wash');
+          return;
+        }
+
+        const sel = document.getElementById(`shop-pen-select-${breed.id}`);
+        const chosenPen = parseInt(sel.value, 10);
+        const countInPen = gameState.cows.filter(c => c.penIndex === chosenPen).length;
+        if (countInPen >= 5) {
+          showToast(`❌ Pen ${chosenPen + 1} is already full (max 5 cows)!`);
+          return;
+        }
+
+        const nameInput = document.getElementById(`shop-name-input-${breedId}`);
+        const chosenName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : getRandomCuteName();
+
+        gameState.synn -= breed.cost;
+        const newCow = {
+          id: 'cow-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          name: chosenName,
+          breedId: breed.id,
+          penIndex: chosenPen,
+          level: 1,
+          xp: 0,
+          careScore: 80,
+          lifetimeCareScore: 80,
+          careDone: { wash: false, feed: false, pet: false },
+          finalGrade: null,
+          milkReady: true,
+          ageDays: 1,
+          posX: 0,
+          posZ: 0,
+          targetX: 0,
+          targetZ: 0,
+          rotY: 0,
+          walkTimer: 0
+        };
+
+        gameState.cows.push(newCow);
+        syncCowMeshes();
+        updateHUD();
+        renderShopCalves();
+        showToast(`🎉 Welcomed ${newCow.name} the ${breed.name} calf to Pen ${chosenPen + 1}!`);
+        playSound('moo');
+        saveGame();
+      }
+
+      function buySupply(item, qty, cost) {
+        if (gameState.synn < cost) {
+          showToast(`❌ Not enough Synn! Need ${cost} Synn.`);
+          playSound('wash');
+          return;
+        }
+        gameState.synn -= cost;
+        gameState.supplies[item] += qty;
+        updateHUD();
+        showToast(`🛒 Purchased ${qty} ${item === 'grass' ? 'Grass Bundles' : 'Cleaning Kits'}!`);
+        playSound('coin');
+        saveGame();
+      }
+
+      /* --- Dairy Harvest & Milk Sales --- */
+      function openHarvestModal() {
+        refreshHarvestModal();
+        document.getElementById('modal-harvest').style.display = 'flex';
+      }
+
+      function refreshHarvestModal() {
+        const list = document.getElementById('harvest-cows-list');
+        list.innerHTML = '';
+
+        let totalLiters = 0;
+        let totalValue = 0;
+
+        gameState.cows.forEach(cow => {
+          const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+          const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+          const pricePerLiter = GRADE_PRICES[grade] || 10;
+          const liters = cow.milkReady ? breed.yield : 0;
+          const val = liters * pricePerLiter;
+
+          totalLiters += liters;
+          totalValue += val;
+
+          const row = document.createElement('div');
+          row.style.cssText = 'background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;';
+          row.innerHTML = `
+            <div>
+              <strong>🐮 ${cow.name}</strong> (${breed.name})
+              <span class="grade-pill grade-${grade}" style="margin-left:6px; font-size:11px;">Grade ${grade}</span>
+            </div>
+            <div style="font-weight:800; font-size:13px; color:${cow.milkReady ? '#2e7d32' : '#9e9e9e'};">
+              ${cow.milkReady ? `🥛 ${liters}L (${val} ✦)` : 'Harvested Today'}
+            </div>
+          `;
+          list.appendChild(row);
+        });
+
+        document.getElementById('harvest-liters-count').textContent = `${totalLiters} Liters`;
+        document.getElementById('harvest-value-count').textContent = `${totalValue.toLocaleString()} Synn`;
+
+        const btn = document.getElementById('btn-collect-all-milk');
+        btn.disabled = totalLiters === 0;
+        btn.textContent = totalLiters > 0 ? `🥛 Collect & Sell for ${totalValue.toLocaleString()} Synn` : 'No Milk Ready Today';
+      }
+
+      function collectAndSellAllMilk() {
+        let earned = 0;
+        let harvestedLiters = 0;
+
+        gameState.cows.forEach(cow => {
+          if (cow.milkReady) {
+            const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+            const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+            const price = GRADE_PRICES[grade] || 10;
+            earned += breed.yield * price;
+            harvestedLiters += breed.yield;
+            cow.milkReady = false;
+          }
+        });
+
+        if (earned > 0) {
+          gameState.synn += earned;
+          playSound('milk');
+          setTimeout(() => playSound('coin'), 300);
+          showToast(`🥛 Sold ${harvestedLiters}L of graded milk for +${earned.toLocaleString()} Synn!`);
+          updateHUD();
+          refreshHarvestModal();
+          saveGame();
+        }
+      }
+
+      /* --- Local Trading Market --- */
+      let cachedMarketOffers = [];
+
+      function generateMarketOffers(force = false) {
+        if (!force && cachedMarketOffers.length > 0) return;
+
+        const buyerNames = [
+          { name: 'Chef Pierre', title: 'Artisan Gelateria', quote: 'I pay premium rates for rich, silky cream!', bonus: 1.4 },
+          { name: 'Lord Butterfield', title: 'Noble Bovine Collector', quote: 'Only the most exquisite breeds belong on my estate.', bonus: 2.1 },
+          { name: 'Farmer Barnaby', title: 'Green Meadows Co-op', quote: 'Looking for a reliable, well-loved companion.', bonus: 1.25 },
+          { name: 'Baroness Bovine', title: 'Royal Heritage Sanctuaries', quote: 'High grade cows bring unmatched prestige.', bonus: 1.8 }
+        ];
+
+        cachedMarketOffers = [];
+        gameState.cows.forEach(cow => {
+          const breed = COW_BREEDS.find(b => b.id === cow.breedId);
+          const grade = cow.finalGrade || calculateGrade(cow.careScore, breed);
+          const buyer = buyerNames[Math.floor(Math.random() * buyerNames.length)];
+
+          const gradeMult = { 'S': 2.5, 'A': 1.8, 'B': 1.4, 'C': 1.1, 'D': 0.8, 'E': 0.6, 'F': 0.5 }[grade] || 1;
+          const offerPrice = Math.round(breed.cost * (0.8 + (cow.level - 1) * 0.1) * gradeMult * buyer.bonus);
+
+          cachedMarketOffers.push({
+            id: 'offer-' + Date.now() + '-' + Math.random(),
+            cowId: cow.id,
+            cowName: cow.name,
+            breedName: breed.name,
+            level: cow.level,
+            grade: grade,
+            buyerName: buyer.name,
+            buyerTitle: buyer.title,
+            buyerQuote: buyer.quote,
+            price: offerPrice
+          });
+        });
+
+        renderMarketOffers();
+      }
+
+      function openMarketModal() {
+        generateMarketOffers();
+        renderMarketOffers();
+        document.getElementById('modal-market').style.display = 'flex';
+      }
+
+      function renderMarketOffers() {
+        const container = document.getElementById('market-offers-list');
+        container.innerHTML = '';
+
+        if (cachedMarketOffers.length === 0) {
+          container.innerHTML = '<p style="text-align:center; color:#795548; padding:20px;">No active buyer offers currently. Adopt more cows or click "Seek New Buyers".</p>';
+          return;
+        }
+
+        cachedMarketOffers.forEach(o => {
+          const card = document.createElement('div');
+          card.className = 'shop-card';
+          card.style.cssText = 'background:#fffdfa; border:2px solid #ecdac8;';
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <strong style="font-size:16px; color:#3e2723;">${o.buyerName}</strong>
+                <span style="font-size:12px; color:#795548;">(${o.buyerTitle})</span>
+                <p style="font-size:12px; font-style:italic; color:#6d4c41; margin-top:2px;">"${o.buyerQuote}"</p>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:18px; font-weight:900; color:#e65100;">${o.price.toLocaleString()} Synn</div>
+                <span class="grade-pill grade-${o.grade}" style="font-size:11px;">Grade ${o.grade}</span>
+              </div>
+            </div>
+            <div style="border-top:1px dashed #e0d2c3; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:13px; font-weight:800; color:#4e342e;">Target: 🐮 ${o.cowName} (Lvl ${o.level} ${o.breedName})</span>
+              <button class="buy-btn" onclick="acceptMarketOffer('${o.id}')">Accept Offer</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      function acceptMarketOffer(offerId) {
+        const offer = cachedMarketOffers.find(o => o.id === offerId);
+        if (!offer) return;
+
+        if (gameState.cows.length <= 1) {
+          showToast("⚠️ You can't trade your only remaining cow!");
+          return;
+        }
+
+        if (confirm(`Sell ${offer.cowName} to ${offer.buyerName} for ${offer.price.toLocaleString()} Synn?`)) {
+          gameState.synn += offer.price;
+          gameState.cows = gameState.cows.filter(c => c.id !== offer.cowId);
+          cachedMarketOffers = cachedMarketOffers.filter(o => o.id !== offerId);
+
+          closeCowToolbar();
+          syncCowMeshes();
+          updateHUD();
+          renderMarketOffers();
+          showToast(`🤝 Traded ${offer.cowName} to ${offer.buyerName} for +${offer.price.toLocaleString()} Synn!`);
+          playSound('coin');
+          saveGame();
+        }
+      }
+
+      /* --- MINIGAMES & TIME FREEZE MECHANISM --- */
+      let minigameCanvas, mgCtx;
+      let mgInterval = null;
+      let mgScore = 0;
+      let mgTimeLeft = 30;
+      let mgItems = [];
+      let mgPlayer = { x: 280, y: 290, width: 70, height: 26 };
+      let mgPendingReward = null;
+
+      function openMinigameMenu() {
+        document.getElementById('minigame-select-view').style.display = 'flex';
+        document.getElementById('minigame-active-view').style.display = 'none';
+        document.getElementById('modal-minigame').style.display = 'flex';
+      }
+
+      function startMinigame(type) {
+        gameState.timeFreeze = true;
+        const total = Math.max(0, gameState.daySecondsLeft);
+        const mins = Math.floor(total / 60);
+        const secs = total % 60;
+        const timeFrozenStr = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        document.getElementById('minigame-freeze-status').textContent = `Day Clock Paused at ${timeFrozenStr}`;
+
+        gameState.minigameActive = true;
+        gameState.minigameType = type;
+
+        document.getElementById('minigame-select-view').style.display = 'none';
+        document.getElementById('minigame-active-view').style.display = 'flex';
+        document.getElementById('mg-gameover-panel').style.display = 'none';
+
+        minigameCanvas = document.getElementById('minigame-canvas');
+        mgCtx = minigameCanvas.getContext('2d');
+
+        mgScore = 0;
+        mgTimeLeft = 30;
+        mgItems = [];
+        document.getElementById('mg-score').textContent = '0';
+        document.getElementById('mg-timer').textContent = '30s';
+
+        if (type === 'catch') {
+          initCatchMinigame();
+        } else {
+          initRunnerMinigame();
+        }
+      }
+
+      function exitMinigame() {
+        if (mgInterval) clearInterval(mgInterval);
+        gameState.minigameActive = false;
+        gameState.minigameType = null;
+        gameState.timeFreeze = false;
+
+        closeAllModals();
+        showToast('⏱️ Resumed Farm Day Clock!');
+      }
+
+      function initCatchMinigame() {
+        mgPlayer = { x: 250, y: 280, width: 70, height: 26 };
+
+        const handleMove = (e) => {
+          if (!gameState.minigameActive) return;
+          const rect = minigameCanvas.getBoundingClientRect();
+          const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+          if (clientX) {
+            const scaleX = minigameCanvas.width / rect.width;
+            mgPlayer.x = Math.max(10, Math.min(minigameCanvas.width - mgPlayer.width - 10, (clientX - rect.left) * scaleX - mgPlayer.width / 2));
+          }
+        };
+
+        minigameCanvas.onmousemove = handleMove;
+        minigameCanvas.ontouchmove = handleMove;
+
+        if (mgInterval) clearInterval(mgInterval);
+        let spawnCounter = 0;
+
+        mgInterval = setInterval(() => {
+          mgTimeLeft -= 0.05;
+          document.getElementById('mg-timer').textContent = `${Math.ceil(Math.max(0, mgTimeLeft))}s`;
+
+          if (mgTimeLeft <= 0) {
+            finishMinigame();
+            return;
+          }
+
+          spawnCounter++;
+          if (spawnCounter % 14 === 0) {
+            const r = Math.random();
+            let kind = 'milk';
+            if (r > 0.85) kind = 'gold';
+            else if (r > 0.7) kind = 'berry';
+            else if (r > 0.55) kind = 'thistle';
+
+            mgItems.push({
+              x: 30 + Math.random() * (minigameCanvas.width - 60),
+              y: -20,
+              vy: 2.5 + Math.random() * 2.5,
+              kind: kind
+            });
+          }
+
+          mgCtx.fillStyle = '#b2ebf2';
+          mgCtx.fillRect(0, 0, minigameCanvas.width, minigameCanvas.height);
+
+          mgCtx.fillStyle = '#607d8b';
+          mgCtx.fillRect(mgPlayer.x, mgPlayer.y, mgPlayer.width, mgPlayer.height);
+          mgCtx.fillStyle = '#cfd8dc';
+          mgCtx.fillRect(mgPlayer.x + 4, mgPlayer.y + 4, mgPlayer.width - 8, 4);
+
+          for (let i = mgItems.length - 1; i >= 0; i--) {
+            const it = mgItems[i];
+            it.y += it.vy;
+
+            mgCtx.font = '22px sans-serif';
+            let icon = '🥛';
+            if (it.kind === 'gold') icon = '⭐';
+            else if (it.kind === 'berry') icon = '🍓';
+            else if (it.kind === 'thistle') icon = '🌵';
+            mgCtx.fillText(icon, it.x, it.y);
+
+            if (it.y > mgPlayer.y && it.y < mgPlayer.y + mgPlayer.height && it.x > mgPlayer.x - 15 && it.x < mgPlayer.x + mgPlayer.width) {
+              if (it.kind === 'milk') { mgScore += 10; playSound('milk'); }
+              else if (it.kind === 'gold') { mgScore += 30; playSound('coin'); }
+              else if (it.kind === 'berry') { mgScore += 20; playSound('pet'); }
+              else if (it.kind === 'thistle') { mgScore = Math.max(0, mgScore - 15); playSound('wash'); }
+
+              document.getElementById('mg-score').textContent = mgScore;
+              mgItems.splice(i, 1);
+            } else if (it.y > minigameCanvas.height) {
+              mgItems.splice(i, 1);
+            }
+          }
+        }, 50);
+      }
+
+      function initRunnerMinigame() {
+        let runner = { y: 235, vy: 0, isJumping: false };
+        let obstacles = [];
+        let clovers = [];
+        let speed = 4;
+        let groundY = 265;
+
+        const jump = () => {
+          if (!runner.isJumping) {
+            runner.vy = -12;
+            runner.isJumping = true;
+            playSound('pet');
+          }
+        };
+
+        minigameCanvas.onpointerdown = jump;
+        window.onkeydown = (e) => {
+          if (e.code === 'Space' || e.code === 'ArrowUp') jump();
+        };
+
+        if (mgInterval) clearInterval(mgInterval);
+        let tick = 0;
+
+        mgInterval = setInterval(() => {
+          mgTimeLeft -= 0.05;
+          document.getElementById('mg-timer').textContent = `${Math.ceil(Math.max(0, mgTimeLeft))}s`;
+
+          if (mgTimeLeft <= 0) {
+            finishMinigame();
+            return;
+          }
+
+          tick++;
+          runner.vy += 0.8;
+          runner.y += runner.vy;
+          if (runner.y >= 235) {
+            runner.y = 235;
+            runner.vy = 0;
+            runner.isJumping = false;
+          }
+
+          if (tick % 50 === 0) {
+            obstacles.push({ x: minigameCanvas.width + 20, w: 24, h: 32 });
+          }
+          if (tick % 30 === 0) {
+            clovers.push({ x: minigameCanvas.width + 20, y: 190 - Math.random() * 40 });
+          }
+
+          mgCtx.fillStyle = '#81c784';
+          mgCtx.fillRect(0, 0, minigameCanvas.width, minigameCanvas.height);
+
+          mgCtx.fillStyle = '#795548';
+          mgCtx.fillRect(0, groundY, minigameCanvas.width, 70);
+
+          mgCtx.font = '30px sans-serif';
+          mgCtx.fillText('🐮', 60, runner.y + 28);
+
+          for (let i = clovers.length - 1; i >= 0; i--) {
+            const cl = clovers[i];
+            cl.x -= speed;
+            mgCtx.fillText('🍀', cl.x, cl.y);
+            if (Math.abs(cl.x - 75) < 30 && Math.abs(cl.y - runner.y - 15) < 35) {
+              mgScore += 25;
+              document.getElementById('mg-score').textContent = mgScore;
+              playSound('coin');
+              clovers.splice(i, 1);
+            } else if (cl.x < -30) {
+              clovers.splice(i, 1);
+            }
+          }
+
+          for (let i = obstacles.length - 1; i >= 0; i--) {
+            const ob = obstacles[i];
+            ob.x -= speed;
+            mgCtx.fillStyle = '#ffb300';
+            mgCtx.fillRect(ob.x, groundY - ob.h, ob.w, ob.h);
+            mgCtx.fillStyle = '#e65100';
+            mgCtx.strokeRect(ob.x, groundY - ob.h, ob.w, ob.h);
+
+            if (ob.x > 50 && ob.x < 90 && runner.y + 28 > groundY - ob.h) {
+              mgScore = Math.max(0, mgScore - 15);
+              document.getElementById('mg-score').textContent = mgScore;
+              playSound('wash');
+              obstacles.splice(i, 1);
+            } else if (ob.x < -40) {
+              obstacles.splice(i, 1);
+            }
+          }
+        }, 50);
+      }
+
+      function finishMinigame() {
+        if (mgInterval) clearInterval(mgInterval);
+
+        const earnedSynn = Math.max(15, Math.round(mgScore * 1.5));
+        const bonusGrass = Math.max(1, Math.floor(mgScore / 40));
+        const bonusSoap = Math.max(1, Math.floor(mgScore / 60));
+
+        mgPendingReward = { synn: earnedSynn, grass: bonusGrass, cleaning: bonusSoap };
+
+        document.getElementById('mg-finish-title').textContent = '🎉 Great Job!';
+        document.getElementById('mg-finish-rewards').textContent = `Earned +${earnedSynn} Synn, +${bonusGrass} Grass, and +${bonusSoap} Soap!`;
+        document.getElementById('mg-gameover-panel').style.display = 'block';
+        playSound('coin');
+      }
+
+      function claimMinigameRewards() {
+        if (mgPendingReward) {
+          gameState.synn += mgPendingReward.synn;
+          gameState.supplies.grass += mgPendingReward.grass;
+          gameState.supplies.cleaning += mgPendingReward.cleaning;
+          mgPendingReward = null;
+        }
+        exitMinigame();
+        updateHUD();
+        saveGame();
+      }
+
+      /* --- Collapsible Bottom Dock --- */
+      let dockCollapsed = false;
+      function toggleDock() {
+        dockCollapsed = !dockCollapsed;
+        const wrapper = document.getElementById('bottom-dock');
+        const btn = document.getElementById('btn-toggle-dock');
+        if (dockCollapsed) {
+          wrapper.style.transform = 'translateY(calc(100% - 24px))';
+          btn.textContent = '▴ Show Dock';
+        } else {
+          wrapper.style.transform = 'translateY(0)';
+          btn.textContent = '▾ Hide Dock';
+        }
+      }
+
+      function toggleSound() {
+        soundEnabled = !soundEnabled;
+        const btn = document.getElementById('btn-sound-toggle');
+        btn.textContent = soundEnabled ? '🔊 Sound' : '🔇 Muted';
+        showToast(soundEnabled ? '🔊 Sound enabled!' : '🔇 Audio muted');
+      }
+
+      /* --- Startup --- */
+      window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('btn-open-shop').onclick = openShopModal;
+        document.getElementById('btn-open-harvest').onclick = openHarvestModal;
+        document.getElementById('btn-open-market').onclick = openMarketModal;
+        document.getElementById('btn-open-minigame').onclick = openMinigameMenu;
+        document.getElementById('btn-sound-toggle').onclick = toggleSound;
+        document.getElementById('btn-toggle-dock').onclick = toggleDock;
+
+        init3DScene();
+        updateHUD();
+        startDayClock();
+      });
+    </script>
+  </body>
+</html>

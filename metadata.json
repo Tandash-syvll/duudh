@@ -1,0 +1,6 @@
+{
+  "name": "Duudh - 3D Cozy Cow Farm",
+  "description": "A cozy, cute 3D farm management game focused on raising, caring for, and trading adorable cows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
